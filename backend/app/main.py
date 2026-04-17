@@ -25,7 +25,7 @@ async def startup_event():
     print("Iniciando sistema RAG...")
     
     # Ingestión inicial del CV
-    cv_path = "c:/Users/juano/Documents/repos/personal/JuanOrtegaPersonalAgent/CV_JuanOrtega_English_updated.pdf"
+    cv_path = "c:/Users/juano/Documents/repos/personal/JuanOrtegaPersonalAgent/data/CV_JuanOrtega_English_updated.pdf"
     qa_path = "c:/Users/juano/Documents/repos/personal/JuanOrtegaPersonalAgent/data/qa_knowledge.json"
     
     if os.path.exists(cv_path):

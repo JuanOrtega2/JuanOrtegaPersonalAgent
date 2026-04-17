@@ -22,7 +22,7 @@ async def test():
 
     # 1. Preparar RAG
     rag = RAGManager()
-    cv_path = os.path.join(root_dir, 'CV_JuanOrtega_English_updated.pdf')
+    cv_path = os.path.join(root_dir, 'data', 'CV_JuanOrtega_English_updated.pdf')
     
     if not os.path.exists(cv_path):
         print(f"❌ ERROR: No se encuentra el CV en {cv_path}")
