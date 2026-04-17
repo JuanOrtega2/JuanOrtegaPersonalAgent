@@ -21,12 +21,12 @@ def agent(mocker):
     mocker.patch("backend.app.rag.GoogleGenerativeAIEmbeddings")
     mocker.patch("backend.app.agent.ChatGoogleGenerativeAI")
     mocker.patch("backend.app.rag.PyPDFLoader")
-    
+
     rag = RAGManager()
     # Mock vector store to avoid retrieve errors
     rag.vector_store = mocker.MagicMock()
     rag.vector_store.as_retriever.return_value.invoke.return_value = []
-    
+
     return RecruiterAgent(rag)
 
 
