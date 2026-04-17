@@ -1,40 +1,47 @@
-from typing import List, Dict, Any, Literal
-from langgraph.graph import StateGraph, END
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel, Field
-from .schemas import AgentState
-from .rag import RAGManager
 import os
+from typing import Literal
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.graph import END, StateGraph
+from pydantic import BaseModel, Field
+
+from .rag import RAGManager
+from .schemas import AgentState
+
 
 class GradeDocuments(BaseModel):
-    """Calificación de relevancia para los documentos recuperados."""
-    binary_score: str = Field(description="¿Son los documentos relevantes para la pregunta? 'yes' o 'no'")
+    """Relevance rating for retrieved documents."""
+
+    binary_score: str = Field(
+        description="Are the documents relevant to the question? 'yes' or 'no'"
+    )
+
 
 class RecruiterAgent:
     def __init__(self, rag_manager: RAGManager):
         self.rag_manager = rag_manager
-        # Usamos Flash para máximo ahorro y velocidad, pasando la API Key explícitamente
+        # Use Gemini Flash for speed and cost-efficiency
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash", 
+            model="gemini-1.5-flash",
             temperature=0,
-            google_api_key=os.getenv("GOOGLE_API_KEY")
+            google_api_key=os.getenv("GOOGLE_API_KEY"),
         )
         self.workflow = self._create_graph()
 
     def _create_graph(self):
         workflow = StateGraph(AgentState)
 
-        # Definir Nodos
+        # Define Nodes
         workflow.add_node("retrieve", self.retrieve_node)
         workflow.add_node("grade_documents", self.grade_documents_node)
         workflow.add_node("generate", self.generate_node)
         workflow.add_node("transform_query", self.transform_query_node)
 
-        # Definir Flujo y Condicionales
+        # Define Flow and Conditionals
         workflow.set_entry_point("retrieve")
         workflow.add_edge("retrieve", "grade_documents")
-        
+
         workflow.add_conditional_edges(
             "grade_documents",
             self.decide_to_generate,
@@ -43,23 +50,26 @@ class RecruiterAgent:
                 "generate": "generate",
             },
         )
-        
+
         workflow.add_edge("transform_query", "retrieve")
         workflow.add_edge("generate", END)
 
         return workflow.compile()
 
     def retrieve_node(self, state: AgentState):
-        """Recupera documentos de la Vector DB."""
+        """Retrieves documents from the Vector DB."""
         retriever = self.rag_manager.get_retriever()
         docs = retriever.invoke(state.query)
         context = [d.page_content for d in docs]
-        return {"context": context, "steps": state.steps + ["Retrieved context from Gemini Knowledge Base"]}
+        return {
+            "context": context,
+            "steps": state.steps + ["Retrieved context from Gemini Knowledge Base"],
+        }
 
     def grade_documents_node(self, state: AgentState):
-        """Evalúa si los documentos recuperados son útiles."""
+        """Evaluates whether retrieved documents are useful."""
         structured_llm = self.llm.with_structured_output(GradeDocuments)
-        
+
         prompt = ChatPromptTemplate.from_template("""
         You are a grader evaluating relevance of retrieved documents to a user question.
         If the documents contain keywords or semantic meaning related to the user question, grade them as relevant.
@@ -68,18 +78,19 @@ class RecruiterAgent:
         Question: {query}
         Documents: {context}
         """)
-        
+
         chain = prompt | structured_llm
         result = chain.invoke({"query": state.query, "context": "\n".join(state.context)})
-        
+
         is_relevant = result.binary_score == "yes"
         return {
-            "relevant": is_relevant, 
-            "steps": state.steps + [f"Gemini Relevance check: {'Passed' if is_relevant else 'Failed'}"]
+            "relevant": is_relevant,
+            "steps": state.steps
+            + [f"Gemini Relevance check: {'Passed' if is_relevant else 'Failed'}"],
         }
 
     def transform_query_node(self, state: AgentState):
-        """Reformulamos la pregunta si no hubo suerte (solo una vez)."""
+        """Reformulates the question if initial retrieval was unsuccessful (one attempt only)."""
         if "Query reformulated" in state.steps:
             return {"steps": state.steps + ["Second attempt failed, moving to final generator"]}
 
@@ -88,21 +99,21 @@ class RecruiterAgent:
         Rewrite the question to improve retrieval, focusing on technical professional aspects related to Juan Ortega's profile.
         Only output the new question.
         """)
-        
+
         chain = prompt | self.llm
         new_query = chain.invoke({"query": state.query})
-        
+
         return {
             "query": new_query.content,
-            "steps": state.steps + ["Query reformulated by Gemini"]
+            "steps": state.steps + ["Query reformulated by Gemini"],
         }
 
     def generate_node(self, state: AgentState):
-        """Genera la respuesta final."""
+        """Generates the final response."""
         if not state.relevant and "Query reformulated" in state.steps:
-             return {
+            return {
                 "response": "Based on the candidate's core profile and the provided professional Q&A, I don't have enough specific information to answer that accurately. Is there anything else about Juan's technical background I can help you with?",
-                "steps": state.steps + ["Admitted lack of specific information"]
+                "steps": state.steps + ["Admitted lack of specific information"],
             }
 
         prompt = ChatPromptTemplate.from_template("""
@@ -117,20 +128,24 @@ class RecruiterAgent:
         - Be concise and professional.
         - Use Markdown.
         """)
-        
+
         chain = prompt | self.llm
         response = chain.invoke({"context": "\n".join(state.context), "query": state.query})
-        
-        return {"response": response.content, "steps": state.steps + ["Generated final response via Gemini"]}
+
+        return {
+            "response": response.content,
+            "steps": state.steps + ["Generated final response via Gemini"],
+        }
 
     def decide_to_generate(self, state: AgentState) -> Literal["transform_query", "generate"]:
-        """Decide si seguimos intentando o generamos ya."""
+        """Decides whether to try search again or generate the response."""
         if state.relevant or "Query reformulated" in state.steps:
             return "generate"
         else:
             return "transform_query"
 
     async def run(self, query: str):
+        """Runs the agent workflow for a given query."""
         inputs = {"query": query, "steps": [], "relevant": True}
         result = await self.workflow.ainvoke(inputs)
         return result

@@ -1,5 +1,5 @@
 [project]
-name = "juanortegapersonalagent"
+name = "personal-ai-agent"
 version = "0.1.0"
 description = "Senior AI Recruiter Agent with LangGraph and RAG"
 readme = "README.md"
@@ -17,7 +17,28 @@ dependencies = [
     "pydantic",
     "python-multipart",
     "langchain-core>=1.2.29",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3.0",
+    "ruff>=0.15.11",
+    "pytest-mock>=3.15.1",
 ]
 
 [tool.uv]
 managed = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["test"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# Nivel de linting: recomendamos 'E' (errores) y 'F' (Pyflakes)
+select = ["E", "F", "I"]
+ignore = ["E501"] # Ignoramos líneas largas para mayor flexibilidad en prompts
+
+[tool.ruff.lint.per-file-ignores]
+# Ignoramos E402 en tests porque a veces manipulamos sys.path antes de importar
+"test/*" = ["E402"]

@@ -1,58 +1,38 @@
-import asyncio
 import os
 import sys
+
+import pytest
 from dotenv import load_dotenv
 
-# Añadir la raíz del proyecto al PATH de forma automática
+# Add project root to PATH
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(root_dir)
 
-# Cargar .env desde la raíz explícitamente
+# Load environment variables
 load_dotenv(os.path.join(root_dir, ".env"))
 
-from backend.app.rag import RAGManager
 from backend.app.agent import RecruiterAgent
+from backend.app.rag import RAGManager
 
-async def test():
-    print("🚀 Iniciando Stress Test del Agente (Google Gemini Edition)...")
+
+@pytest.fixture
+def agent(mocker):
+    """Fixture with minimal mocking to ensure the test runs without external API calls."""
+    mocker.patch("backend.app.rag.GoogleGenerativeAIEmbeddings")
+    mocker.patch("backend.app.agent.ChatGoogleGenerativeAI")
+    mocker.patch("backend.app.rag.PyPDFLoader")
     
-    if not os.getenv("GOOGLE_API_KEY"):
-        print("❌ ERROR: No se encuentra GOOGLE_API_KEY en el archivo .env")
-        return
-
-    # 1. Preparar RAG
     rag = RAGManager()
-    cv_path = os.path.join(root_dir, 'data', 'CV_JuanOrtega_English_updated.pdf')
+    # Mock vector store to avoid retrieve errors
+    rag.vector_store = mocker.MagicMock()
+    rag.vector_store.as_retriever.return_value.invoke.return_value = []
     
-    if not os.path.exists(cv_path):
-        print(f"❌ ERROR: No se encuentra el CV en {cv_path}")
-        return
+    return RecruiterAgent(rag)
 
-    print("📄 Ingestando CV...")
-    rag.ingest_cv(cv_path)
-    
-    # Ingestar Q&A si existe
-    qa_path = os.path.join(root_dir, 'data/qa_knowledge.json')
-    if os.path.exists(qa_path):
-        print("📂 Ingestando Q&A adicional...")
-        rag.ingest_qa(qa_path)
 
-    # 2. Iniciar Agente
-    agent = RecruiterAgent(rag)
-    
-    # Test 1: Pregunta Técnica Real
-    print("\n--- TEST 1: Información Profesional ---")
-    print("Pregunta: 'What is Juan's experience with AI Agent architectures?'")
-    res1 = await agent.run("What is Juan's experience with AI Agent architectures?")
-    print(f"PASOS: {res1.get('steps', [])}")
-    print(f"RESPUESTA:\n{res1.get('response', 'Sin respuesta')}")
-    
-    # Test 2: Pregunta Irrelevante (Stress Test)
-    print("\n--- TEST 2: Pregunta Irrelevante ---")
-    print("Pregunta: 'Does Juan like skiing?'")
-    res2 = await agent.run("Does Juan like skiing?")
-    print(f"PASOS: {res2.get('steps', [])}")
-    print(f"RESPUESTA:\n{res2.get('response', 'Sin respuesta')}")
-
-if __name__ == "__main__":
-    asyncio.run(test())
+@pytest.mark.asyncio
+async def test_agent_structural_check(agent, mocker):
+    """Verifies that the agent instance is correctly created and has the required methods."""
+    assert agent is not None
+    assert hasattr(agent, "run")
+    assert agent.workflow is not None
