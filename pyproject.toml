@@ -1,10 +1,23 @@
 [project]
 name = "juanortegapersonalagent"
 version = "0.1.0"
-description = "Personal agent project"
+description = "Senior AI Recruiter Agent with LangGraph and RAG"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "langgraph",
+    "langchain",
+    "langchain-google-genai",
+    "langchain-community",
+    "faiss-cpu",
+    "pypdf",
+    "python-dotenv",
+    "pydantic",
+    "python-multipart",
+    "langchain-core>=1.2.29",
+]
 
 [tool.uv]
 managed = true
