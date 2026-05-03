@@ -1,0 +1,10 @@
+[
+    {
+        "question": "What is Juan's experience with large language models?",
+        "answer": "Juan has extensive experience building RAG systems and agentic workflows using LangChain and OpenAI, as demonstrated in several personal and professional projects."
+    },
+    {
+        "question": "Does he have experience with cloud deployments?",
+        "answer": "Yes, Juan is proficient in Docker and has experience deploying applications to cloud platforms like AWS and Google Cloud."
+    }
+]

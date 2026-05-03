@@ -4,3 +4,15 @@ __pycache__/
 *$py.class
 .DS_Store
 .env
+
+# Personal and Data files
+*.pdf
+data/
+*.faiss
+*.pkl
+
+# IDE and Testing
+.pytest_cache/
+.vscode/
+.idea/
+.docs/
